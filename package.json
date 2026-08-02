@@ -1,0 +1,25 @@
+{
+  "name": "karaoke",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.2",
+    "vite": "^8.2.0",
+    "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "@soundtouchjs/audio-worklet": "^2.1.0",
+    "@soundtouchjs/core": "^2.1.0",
+    "@tonejs/midi": "^2.0.28",
+    "pitchy": "^4.1.0"
+  }
+}

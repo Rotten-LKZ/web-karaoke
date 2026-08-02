@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>网页卡拉OK</title>
+  </head>
+  <body>
+    <div id="app">
+      <!-- 启动遮罩：浏览器要求音频/麦克风必须在用户手势中初始化 -->
+      <div id="gate">
+        <button id="start-btn" type="button">开始</button>
+        <p id="gate-hint">点击开始以启用音频引擎</p>
+      </div>
+
+      <!-- 主界面（启动前隐藏） -->
+      <main id="stage" hidden>
+        <header id="topbar">
+          <div id="song-info"></div>
+          <div id="mic-status" class="mic-status"></div>
+          <div id="controls"></div>
+        </header>
+
+        <section id="pitchline-wrap">
+          <canvas id="pitchline"></canvas>
+          <div id="score-badge"></div>
+        </section>
+
+        <section id="highway-wrap">
+          <canvas id="highway"></canvas>
+        </section>
+
+        <section id="lyrics-wrap">
+          <div id="lyrics"></div>
+        </section>
+
+        <section id="piano-wrap">
+          <div id="piano"></div>
+        </section>
+      </main>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

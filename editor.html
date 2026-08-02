@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>制谱编辑器</title>
+  </head>
+  <body>
+    <div id="app">
+      <div id="gate">
+        <button id="start-btn" type="button">开始</button>
+        <p id="gate-hint">点击开始以启用音频引擎</p>
+      </div>
+
+      <main id="editor" hidden>
+        <header id="toolbar">
+          <input id="file-input" type="file" accept="audio/*" />
+          <span id="track-info">未加载音频</span>
+          <button id="play-btn" type="button">播放</button>
+          <button id="stop-btn" type="button">停止</button>
+          <button id="export-btn" type="button">导出 song.json</button>
+          <span id="hint">空格=播放暂停 · 左键拖=画音符 · 右键音符=删 · 右键空白=移动播放点 · Delete=删选中</span>
+          <span id="progress"></span>
+        </header>
+
+        <section id="spec-wrap">
+          <canvas id="spec"></canvas>
+        </section>
+
+        <section id="roll-wrap">
+          <canvas id="roll"></canvas>
+        </section>
+      </main>
+    </div>
+    <script type="module" src="/src/editor/main.ts"></script>
+  </body>
+</html>

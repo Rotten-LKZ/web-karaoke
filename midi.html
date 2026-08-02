@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MIDI 转 song.json</title>
+  </head>
+  <body>
+    <div id="app">
+      <h1>MIDI 转 song.json</h1>
+      <p class="muted">上传 MIDI 文件 → 选主旋律轨道 → 设置时间偏移 → 导出。</p>
+
+      <div class="row">
+        <input id="file-input" type="file" accept=".mid,.midi,audio/midi" />
+        <span id="file-info"></span>
+      </div>
+
+      <div id="tracks-wrap" hidden>
+        <label>
+          轨道
+          <select id="track-select"></select>
+        </label>
+        <span id="track-info" class="muted"></span>
+      </div>
+
+      <div id="offset-wrap" hidden>
+        <h3>时间偏移（所有音符统一加上）</h3>
+        <div class="row">
+          <label>
+            秒 <input id="offset-sec" type="number" value="0" step="1" min="0" />
+          </label>
+          <label>
+            毫秒 <input id="offset-ms" type="number" value="0" step="10" min="0" />
+          </label>
+          <span class="muted">总偏移 <span id="offset-total">0.000</span>s</span>
+        </div>
+
+        <div class="row">
+          <label>
+            跳过原始 offset（MIDI 自带的前置空白）
+            <input id="ignore-orig-offset" type="checkbox" checked />
+          </label>
+        </div>
+      </div>
+
+      <div id="preview-wrap" hidden>
+        <h3>预览（前 20 个音符）</h3>
+        <pre id="preview"></pre>
+        <p class="muted">共 <span id="note-count">0</span> 个音符</p>
+      </div>
+
+      <div class="row">
+        <label>
+          标题 <input id="title-input" type="text" value="新歌" />
+        </label>
+        <button id="export-btn" type="button" disabled>导出 song.json</button>
+        <a href="/">← 回练习页</a>
+        <a href="/editor.html">制谱编辑器 →</a>
+      </div>
+    </div>
+    <script type="module" src="/src/midi/main.ts"></script>
+  </body>
+</html>

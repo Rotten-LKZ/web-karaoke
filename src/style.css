@@ -1,0 +1,372 @@
+:root {
+  --bg: #0e0f13;
+  --panel: #16181f;
+  --panel-2: #1d2029;
+  --line: #2a2e3a;
+  --text: #e7e9ee;
+  --muted: #8b90a0;
+  --accent: #4f9cff;
+  --good: #5fd07a;
+  --bad: #ff6b6b;
+  --warn: #ffcf5c;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* 确保 hidden 属性优先于任何 display 设置（如 #gate/#stage 的 flex）。 */
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* ---- 启动遮罩 ---- */
+#gate {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+#start-btn {
+  font-size: 1.25rem;
+  padding: 0.9rem 2.4rem;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  transition: transform 0.08s ease, filter 0.15s ease;
+}
+
+#start-btn:hover {
+  filter: brightness(1.1);
+}
+
+#start-btn:active {
+  transform: scale(0.97);
+}
+
+#gate-hint {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+/* ---- 主舞台 ---- */
+#stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+#topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 1rem;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  flex: none;
+}
+
+#song-info {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.mic-status {
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  min-width: 7rem;
+  text-align: center;
+  transition: color 0.1s ease, border-color 0.1s ease;
+}
+
+.mic-status[data-verdict="in-tune"] {
+  color: var(--good);
+  border-color: var(--good);
+}
+
+.mic-status[data-verdict="sharp"] {
+  color: var(--bad);
+  border-color: var(--bad);
+}
+
+.mic-status[data-verdict="flat"] {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+#controls {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+#controls button,
+#controls select {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+#controls button:hover {
+  border-color: var(--accent);
+}
+
+#controls label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+#highway-wrap {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  background: #0a0b0e;
+}
+
+#highway {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ---- 横向音高参考线（全民K歌式） ---- */
+#pitchline-wrap {
+  flex: none;
+  position: relative;
+  height: 96px;
+  background: #11131a;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+#pitchline {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+#score-badge {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.15rem 0.8rem;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+#score-badge.has-score {
+  color: var(--good);
+  border-color: var(--good);
+}
+
+#lyrics-wrap {
+  flex: none;
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+  padding: 0.5rem 1rem;
+  min-height: 6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+#lyrics {
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.5;
+  width: 100%;
+}
+
+.lyr-line {
+  text-align: center;
+  transition: opacity 0.2s ease, transform 0.2s ease, font-size 0.2s ease;
+}
+
+.lyr-line.far {
+  display: none;
+}
+
+.lyr-line.prev,
+.lyr-line.next {
+  font-size: 1rem;
+  opacity: 0.4;
+}
+
+.lyr-line.cur {
+  font-size: 1.6rem;
+  opacity: 1;
+}
+
+.syl {
+  color: var(--muted);
+  transition: color 0.12s ease;
+  margin: 0 1px;
+}
+
+.syl.done {
+  color: var(--text);
+  opacity: 0.55;
+}
+
+/* {\k} 瞬间高亮 */
+.syl.active[data-effect="k"] {
+  color: var(--good);
+}
+
+/* {\kf}/{\K} 平滑擦除填充：用 --progress 控制已唱宽度 */
+.syl.active[data-effect="kf"] {
+  background: linear-gradient(
+    to right,
+    var(--good) 0%,
+    var(--good) calc(var(--progress, 0) * 100%),
+    var(--muted) calc(var(--progress, 0) * 100%),
+    var(--muted) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+.syl.active[data-effect="ko"] {
+  color: var(--accent);
+}
+
+.syl.active[data-effect="plain"] {
+  color: var(--text);
+}
+
+#piano-wrap {
+  flex: none;
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+  padding: 0.5rem;
+}
+
+/* ---- 钢琴卷帘 ---- */
+.piano {
+  position: relative;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 4px;
+}
+
+.piano-inner {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  height: 7vh;
+  min-height: 64px;
+  /* 窄于容器时居中；溢出时 margin:auto 退化为 0，靠左且可横向滚动 */
+  margin: 0 auto;
+}
+
+.piano-key {
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: 6px;
+  transition: filter 0.06s ease;
+  user-select: none;
+}
+
+.piano-key.white {
+  flex: none;
+  height: 100%;
+  background: #f4f5f8;
+  color: #333;
+  border-right: 1px solid #c9ccd4;
+}
+
+.piano-key.white:first-child {
+  border-radius: 0 0 0 6px;
+}
+
+.piano-key.black {
+  height: 5vh;
+  min-height: 44px;
+  background: #15171d;
+  color: #c7cbd4;
+  z-index: 2;
+  border-radius: 0 0 5px 5px;
+  position: absolute;
+  top: 0;
+}
+
+.piano-key.pressed,
+.piano-key:active {
+  filter: brightness(0.82);
+}
+
+.piano-key.melody-hit {
+  box-shadow: 0 0 0 2px var(--good), 0 0 14px 2px rgba(95, 208, 122, 0.7);
+}
+
+/* 正在唱的音（麦克风识别） */
+.piano-key.singing {
+  box-shadow: 0 0 0 2px var(--warn), 0 0 14px 2px rgba(255, 207, 92, 0.8);
+}
+
+/* 目标音 + 正在唱重合时：目标优先（绿） */
+.piano-key.melody-hit.singing {
+  box-shadow:
+    0 0 0 2px var(--good),
+    0 0 14px 2px rgba(95, 208, 122, 0.7),
+    inset 0 0 0 2px var(--warn);
+}
+
+.piano-key-label {
+  font-size: 0.7rem;
+  opacity: 0.55;
+  text-transform: uppercase;
+}
+
+.piano-key-name {
+  font-size: 0.62rem;
+  opacity: 0.4;
+}
