@@ -30,7 +30,7 @@ interface SungSegment {
 
 /** 视为「同一长音」的音高容差（半音）。长音相对段起始音高在此范围内则延长同一段。
  *  音头固定后，后续帧只与段起始比较，不改音高，故容差可略宽以容忍抖动。 */
-const SAME_NOTE_SEMITONE = 0.5;
+const SAME_NOTE_SEMITONE = 0.8;
 /** 超过此时长无更新则结束当前段（秒）。 */
 const SEGMENT_GAP = 0.15;
 /**
@@ -38,7 +38,7 @@ const SEGMENT_GAP = 0.15;
  * 分析窗口(~23ms) + 轮询(25ms) + 平滑(~100ms)。把演唱段标注到 t-LATENCY，
  * 方块视觉对齐到声音实际发生的过去时刻，与标准方块正确比对。
  * 物理上无法消除窗口延迟，只能在显示层补偿。 */
-const LATENCY = 0.15;
+const LATENCY = 0.25;
 
 /**
  * 音轨与实时音准比对视图（Pitch Matching View）：

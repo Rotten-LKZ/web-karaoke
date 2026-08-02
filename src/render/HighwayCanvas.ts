@@ -100,13 +100,22 @@ export class HighwayCanvas {
       this.roundRect(x - w / 2, yStart, w, Math.max(6, yEnd - yStart), 6);
       ctx.fill();
 
-      // 音名标签
+      // 歌词标签（方块中间）
       if (n.lyric && yEnd > topY && yStart < hitY) {
         ctx.fillStyle = "#fff";
         ctx.font = "12px system-ui";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(n.lyric, x, (yStart + yEnd) / 2);
+      }
+
+      // 音名标签（方块下方，移调后）
+      if (yEnd < hitY + this.hitLineH) {
+        ctx.fillStyle = "rgba(255,255,255,0.85)";
+        ctx.font = "11px system-ui";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        ctx.fillText(midiToName(Math.round(effMidi)), x, yEnd + 4);
       }
     }
 

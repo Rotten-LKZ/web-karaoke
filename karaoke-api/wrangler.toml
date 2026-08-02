@@ -1,0 +1,21 @@
+name = "karaoke-api"
+main = "src/index.ts"
+compatibility_date = "2026-04-15"
+compatibility_flags = ["nodejs_compat"]
+
+routes = [
+  { pattern = "karaoke-api.rotcool.me", custom_domain = true }
+]
+
+# 部署后通过 `pnpm wrangler secret put <NAME>` 注入：
+#   CDN_DOMAIN  - 七牛 CDN 域名，如 https://cdn.example.com
+#   QINIU_AK    - 七牛 AccessKey
+#   QINIU_SK    - 七牛 SecretKey
+# 本地开发写到 .dev.vars（参考 .dev.vars.example）
+
+[vars]
+CORS_ORIGIN = "https://karaoke.rotcool.me,http://localhost:5173,http://127.0.0.1:5173"
+TTL_SECONDS = "1800"
+
+[observability]
+enabled = true

@@ -1,0 +1,20 @@
+[
+  {
+    "slug": "brainrot",
+    "title": "ブレインロット",
+    "artist": "東京真中 feat. 重音テト",
+    "key": "karaoke/brainrot.mp3"
+  },
+  {
+    "slug": "twinkle",
+    "title": "音阶练习",
+    "artist": "测试",
+    "key": "karaoke/twinkle.wav"
+  },
+  {
+    "slug": "scale-down",
+    "title": "下行音阶",
+    "artist": "测试",
+    "key": "karaoke/scale-down.wav"
+  }
+]

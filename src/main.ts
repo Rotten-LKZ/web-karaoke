@@ -2,11 +2,12 @@ import "./style.css";
 import { AudioEngine } from "./audio/AudioEngine.ts";
 import { Synth } from "./audio/Synth.ts";
 import { MicPitchDetector } from "./audio/PitchDetector.ts";
-import { loadSongData, audioUrl } from "./data/SongLoader.ts";
+import { loadSongData } from "./data/SongLoader.ts";
 import { parseAss } from "./data/AssParser.ts";
-import { comparePitch } from "./data/transpose.ts";
+import { comparePitch, type Verdict } from "./data/transpose.ts";
 import { Scoring } from "./data/Scoring.ts";
 import { freqToMidi, midiToName } from "./util/music.ts";
+import songList from "../songs.json";
 import { HighwayCanvas, type MicPitch } from "./render/HighwayCanvas.ts";
 import { PitchLineCanvas } from "./render/PitchLineCanvas.ts";
 import { PianoRoll } from "./render/PianoRoll.ts";
@@ -26,11 +27,13 @@ const micStatusEl = document.getElementById("mic-status")!;
 const scoreBadge = document.getElementById("score-badge")!;
 
 const SONGS_BASE = "/songs";
+const SIGN_API = import.meta.env.VITE_SIGN_API ?? "https://karaoke-api.rotcool.me";
 
 interface SongEntry {
   slug: string;
   title: string;
   artist: string;
+  key?: string;
 }
 
 // 全局可变状态。
@@ -87,7 +90,8 @@ async function boot(): Promise<void> {
     songInfo.textContent = "加载中…";
     const dir = `${SONGS_BASE}/${slug}`;
     const song = await loadSongData(dir);
-    await engine.loadAudio(audioUrl(song, dir));
+    const audio = await signedAudioUrl(slug);
+    await engine.loadAudio(audio);
     currentSong = song;
 
     highway.setNotes(song.melody.notes);
@@ -189,40 +193,52 @@ async function boot(): Promise<void> {
   };
   requestAnimationFrame(tick);
 
+  // 上一次有效识别结果，用于无新结果时保持显示
+  let lastMicStatus: { text: string; verdict: Verdict } | null = null;
+
   function updateMicStatus(cmp: ReturnType<typeof comparePitch> | null): void {
-    if (!cmp || !state.mic || state.mic.freq <= 0) {
-      micStatusEl.textContent = "麦克风未开";
-      micStatusEl.dataset.verdict = "none";
+    if (cmp && state.mic && state.mic.freq > 0) {
+      // 显示「相对识别到的最近音级」的偏移（调音器式，±50¢），
+      // 而非相对目标的八度等价 cents（那个可能 ±600 无意义）。
+      const micMidi = freqToMidi(state.mic.freq);
+      const heardMidi = Math.round(micMidi);
+      const heardName = midiToName(heardMidi);
+      const centsOff = Math.round((micMidi - heardMidi) * 100); // -50..+50
+      const label = {
+        "in-tune": "准 ✓",
+        sharp: "偏高 ↑",
+        flat: "偏低 ↓",
+        none: "—",
+      }[cmp.verdict];
+      const text = `${heardName} ${centsOff > 0 ? "+" : ""}${centsOff}¢ · ${label}`;
+      lastMicStatus = { text, verdict: cmp.verdict };
+      micStatusEl.textContent = text;
+      micStatusEl.dataset.verdict = cmp.verdict;
       return;
     }
-    // 显示「相对识别到的最近音级」的偏移（调音器式，±50¢），
-    // 而非相对目标的八度等价 cents（那个可能 ±600 无意义）。
-    const micMidi = freqToMidi(state.mic.freq);
-    const heardMidi = Math.round(micMidi);
-    const heardName = midiToName(heardMidi);
-    const centsOff = Math.round((micMidi - heardMidi) * 100); // -50..+50
-    const label = {
-      "in-tune": "准 ✓",
-      sharp: "偏高 ↑",
-      flat: "偏低 ↓",
-      none: "—",
-    }[cmp.verdict];
-    micStatusEl.textContent = `${heardName} ${centsOff > 0 ? "+" : ""}${centsOff}¢ · ${label}`;
-    micStatusEl.dataset.verdict = cmp.verdict;
+    // 无有效结果：若有过识别则保持上一个，否则才提示麦克风未开
+    if (lastMicStatus) {
+      micStatusEl.textContent = lastMicStatus.text;
+      micStatusEl.dataset.verdict = lastMicStatus.verdict;
+    } else {
+      micStatusEl.textContent = "麦克风未开";
+      micStatusEl.dataset.verdict = "none";
+    }
   }
 
   (window as unknown as { __engine: AudioEngine }).__engine = engine;
 }
 
 async function fetchSongList(): Promise<SongEntry[]> {
-  try {
-    const res = await fetch(`${SONGS_BASE}/index.json`);
-    if (!res.ok) return [];
-    const data = (await res.json()) as { songs: SongEntry[] };
-    return data.songs ?? [];
-  } catch {
-    return [];
-  }
+  return songList as SongEntry[];
+}
+
+/** 向签名 API 请求某首歌的七牛 CDN 私有播放 URL。 */
+async function signedAudioUrl(slug: string): Promise<string> {
+  const res = await fetch(`${SIGN_API}/sign/${encodeURIComponent(slug)}`);
+  if (!res.ok) throw new Error(`签名失败: ${res.status}`);
+  const data = (await res.json()) as { url: string };
+  return data.url;
 }
 
 function buildControls(

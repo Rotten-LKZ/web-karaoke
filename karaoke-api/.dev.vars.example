@@ -1,0 +1,4 @@
+# 复制为 .dev.vars 后填入真实值（.dev.vars 不提交）
+CDN_DOMAIN=https://cdn.example.com
+QINIU_AK=your-access-key
+QINIU_SK=your-secret-key

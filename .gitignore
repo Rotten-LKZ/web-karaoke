@@ -14,6 +14,10 @@ dist
 dist-ssr
 *.local
 
+# karaoke-api (Worker)
+karaoke-api/.dev.vars
+karaoke-api/.wrangler
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
