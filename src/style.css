@@ -144,6 +144,16 @@ body {
   border-color: var(--accent);
 }
 
+#controls button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+#controls button.recording {
+  border-color: var(--bad);
+  color: var(--bad);
+}
+
 #controls label {
   display: inline-flex;
   align-items: center;

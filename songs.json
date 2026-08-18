@@ -6,6 +6,13 @@
     "key": "karaoke/brainrot.mp3"
   },
   {
+    "slug": "brainrotorg",
+    "title": "ブレインロット org",
+    "artist": "東京真中 feat. 重音テト",
+    "key": "karaoke/brainrotorg.mp3",
+    "original": "karaoke/brainrotall.mp3"
+  },
+  {
     "slug": "twinkle",
     "title": "音阶练习",
     "artist": "测试",

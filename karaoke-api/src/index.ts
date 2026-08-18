@@ -36,9 +36,18 @@ app.get('/sign/:slug', async (c) => {
   const song = getSong(c.req.param('slug'));
   if (!song) return c.json({ error: 'song not found' }, 404);
 
+  const track = c.req.query('track');
+  let key: string;
+  if (track === 'original') {
+    if (!song.original) return c.json({ error: 'original not available' }, 404);
+    key = song.original;
+  } else {
+    key = song.key;
+  }
+
   const expiresIn = Number(c.env.TTL_SECONDS ?? '1800');
-  const url = await signQiniuUrl(c.env, song.key, expiresIn);
-  return c.json({ url, expiresIn, slug: song.slug, title: song.title });
+  const url = await signQiniuUrl(c.env, key, expiresIn);
+  return c.json({ url, expiresIn, slug: song.slug, title: song.title, track: track ?? 'karaoke' });
 });
 
 app.notFound((c) => c.json({ error: 'not found' }, 404));

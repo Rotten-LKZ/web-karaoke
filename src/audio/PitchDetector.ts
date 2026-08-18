@@ -17,7 +17,8 @@ export class MicPitchDetector {
   private detector = Pitchy.forFloat32Array(FFT_SIZE);
   private buf = new Float32Array(FFT_SIZE);
   private analyser: AnalyserNode;
-  private stream!: MediaStream;
+  /** 当前麦克风流（录音复用）；未开启时为 null。 */
+  stream: MediaStream | null = null;
   private timer: number | null = null;
   private history: number[] = [];
 
@@ -49,6 +50,7 @@ export class MicPitchDetector {
       this.timer = null;
     }
     this.stream?.getTracks().forEach((t) => t.stop());
+    this.stream = null;
     this.latest = { freq: 0, clarity: 0 };
     this.history = [];
   }

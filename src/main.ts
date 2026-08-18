@@ -2,11 +2,13 @@ import "./style.css";
 import { AudioEngine } from "./audio/AudioEngine.ts";
 import { Synth } from "./audio/Synth.ts";
 import { MicPitchDetector } from "./audio/PitchDetector.ts";
+import { Recorder } from "./audio/Recorder.ts";
 import { loadSongData } from "./data/SongLoader.ts";
 import { parseAss } from "./data/AssParser.ts";
 import { comparePitch, type Verdict } from "./data/transpose.ts";
 import { Scoring } from "./data/Scoring.ts";
 import { freqToMidi, midiToName } from "./util/music.ts";
+import { audioBufferToWav } from "./util/wav.ts";
 import songList from "../songs.json";
 import { HighwayCanvas, type MicPitch } from "./render/HighwayCanvas.ts";
 import { PitchLineCanvas } from "./render/PitchLineCanvas.ts";
@@ -34,12 +36,24 @@ interface SongEntry {
   title: string;
   artist: string;
   key?: string;
+  /** 原唱音轨（可选）：有该字段的歌曲才能切换原唱。 */
+  original?: string;
+}
+
+/** 一次录音：Blob 供下载，解码后的 buffer 供同步回放（解码失败时为 null）。 */
+interface Recording {
+  blob: Blob;
+  buffer: AudioBuffer | null;
+  /** 录音起点对应的歌曲秒数。 */
+  startOffset: number;
+  slug: string;
 }
 
 // 全局可变状态。
 const state = {
   semitones: 0,
   mic: null as MicPitch | null,
+  micOn: false,
 };
 
 // UI 元素引用。
@@ -47,6 +61,13 @@ let playBtn: HTMLButtonElement;
 let seekBar: HTMLInputElement;
 let timeLbl: HTMLSpanElement;
 let songSelect: HTMLSelectElement;
+let micBtn: HTMLButtonElement;
+let origBtn: HTMLButtonElement;
+let recBtn: HTMLButtonElement;
+let recPlayBtn: HTMLButtonElement;
+let recDlBtn: HTMLButtonElement;
+let recOffsetInput: HTMLInputElement;
+let recOffsetLbl: HTMLSpanElement;
 let seeking = false;
 
 async function boot(): Promise<void> {
@@ -82,16 +103,174 @@ async function boot(): Promise<void> {
 
   // 当前歌曲数据（tick 闭包引用）
   let currentSong: SongData | null = null;
+  let currentSlug = "";
+
+  // ---- 录音状态与操作 ----
+  const recorder = new Recorder();
+  let recording: Recording | null = null;
+  let recEnabled = false;
+  let recStartOffset = 0;
+  /** 回放偏移补偿（ms）。正值 = 录音延后播放（Windows 麦克风采集有延迟）。 */
+  let recOffsetMs = 0;
+
+  function updateRecUI(): void {
+    recBtn.textContent = recorder.isRecording ? "停止录音" : "开始录音";
+    recBtn.classList.toggle("recording", recorder.isRecording);
+    const playable =
+      recording !== null &&
+      recording.buffer !== null &&
+      recording.slug === currentSlug;
+    recPlayBtn.disabled = !playable;
+    recPlayBtn.textContent = recEnabled ? "录音播放: 开" : "录音播放: 关";
+    recOffsetInput.disabled = !playable;
+    recDlBtn.disabled = recording === null;
+  }
+
+  /** 开/关麦克风（录音按钮与话筒按钮共用）。 */
+  async function setMic(on: boolean): Promise<boolean> {
+    if (on) {
+      try {
+        await mic.start();
+        state.micOn = true;
+        micBtn.textContent = "关麦克风";
+        return true;
+      } catch (err) {
+        alert("无法访问麦克风：" + (err as Error).message);
+        return false;
+      }
+    }
+    if (recorder.isRecording) void stopRecording();
+    mic.stop();
+    state.micOn = false;
+    micBtn.textContent = "开麦克风";
+    state.mic = null;
+    return true;
+  }
+
+  /** 开始录音（麦克风未开时自动开启）。 */
+  async function startRecording(): Promise<void> {
+    if (recorder.isRecording) {
+      await stopRecording();
+      return;
+    }
+    if (!state.micOn && !(await setMic(true))) return;
+    const stream = mic.stream;
+    if (!stream) return;
+    recStartOffset = engine.getCurrentTime();
+    recorder.start(stream);
+    updateRecUI();
+  }
+
+  /** 停止录音并解码，默认立刻启用「带录音播放」。 */
+  async function stopRecording(opts: { enablePlayback?: boolean } = {}): Promise<void> {
+    if (!recorder.isRecording) return;
+    const blob = await recorder.stop();
+    let buffer: AudioBuffer | null = null;
+    try {
+      buffer = await ctx.decodeAudioData(await blob.arrayBuffer());
+    } catch (err) {
+      console.warn("录音解码失败（可能为空录音）：", err);
+      alert("录音解码失败，无法回放，但仍可下载。");
+    }
+    // 下载用 WAV（解码成功后转换；失败则退回 MediaRecorder 原始格式）。
+    recording = {
+      blob: buffer ? audioBufferToWav(buffer) : blob,
+      buffer,
+      startOffset: recStartOffset,
+      slug: currentSlug,
+    };
+    if (opts.enablePlayback !== false && buffer) {
+      recEnabled = true;
+      await engine.setOverlay(buffer, recStartOffset - recOffsetMs / 1000);
+      await engine.setOverlayEnabled(true);
+    }
+    updateRecUI();
+  }
+
+  /** 切换「带录音播放」。 */
+  async function toggleRecPlayback(): Promise<void> {
+    if (!recording?.buffer || recording.slug !== currentSlug) return;
+    recEnabled = !recEnabled;
+    if (recEnabled) {
+      await engine.setOverlay(
+        recording.buffer,
+        recording.startOffset - recOffsetMs / 1000,
+      );
+      await engine.setOverlayEnabled(true);
+    } else {
+      await engine.setOverlayEnabled(false);
+    }
+    updateRecUI();
+  }
+
+  /** 调整录音回放偏移（补偿麦克风采集延迟）。 */
+  async function setRecOffset(ms: number): Promise<void> {
+    recOffsetMs = ms;
+    if (recording?.buffer && recording.slug === currentSlug) {
+      await engine.setOverlay(
+        recording.buffer,
+        recording.startOffset - ms / 1000,
+      );
+    }
+  }
+
+  /** 下载保存录音文件（WAV；解码失败时退回原始 webm/mp4）。 */
+  function downloadRecording(): void {
+    if (!recording) return;
+    const ext =
+      recording.blob.type === "audio/wav"
+        ? "wav"
+        : recording.blob.type.includes("mp4")
+          ? "mp4"
+          : "webm";
+    const url = URL.createObjectURL(recording.blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${recording.slug || "karaoke"}-录音.${ext}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
 
   /** 加载并切换一首歌。 */
   async function loadSong(slug: string): Promise<void> {
     engine.pause();
     await engine.seek(0);
+    currentSlug = slug;
+
+    // 换歌：结束进行中的录音，并停用录音叠加（录音文件仍保留可下载）。
+    if (recorder.isRecording) await stopRecording({ enablePlayback: false });
+    recEnabled = false;
+    await engine.setOverlayEnabled(false);
+    await engine.setOverlay(null);
+    updateRecUI();
+
     songInfo.textContent = "加载中…";
     const dir = `${SONGS_BASE}/${slug}`;
+    const entry = (songList as SongEntry[]).find((s) => s.slug === slug);
     const song = await loadSongData(dir);
     const audio = await signedAudioUrl(slug);
     await engine.loadAudio(audio);
+
+    // 原唱（可选）：仅配置了 original 且加载成功的歌曲显示切换按钮。
+    await engine.setUseOriginal(false);
+    try {
+      if (entry?.original) {
+        await engine.loadOriginalAudio(await signedAudioUrl(slug, "original"));
+      } else {
+        engine.clearOriginal();
+      }
+    } catch (err) {
+      console.warn("原唱加载失败：", err);
+      engine.clearOriginal();
+      alert(
+        "原唱加载失败，无法切换原唱。请确认 Worker 已重新部署（支持 ?track=original）且七牛上存在对应文件。",
+      );
+    }
+    origBtn.hidden = !engine.hasOriginal;
+    origBtn.textContent = "原唱: 关";
+
     currentSong = song;
 
     highway.setNotes(song.melody.notes);
@@ -110,10 +289,17 @@ async function boot(): Promise<void> {
     songInfo.textContent = `${song.meta.title} · ${song.meta.artist}（${engine.duration.toFixed(0)}s）`;
   }
 
-  buildControls(engine, mic, loadSong, () => {
+  buildControls(engine, loadSong, () => {
     pitchLine.clearTrail();
     scoring.reset();
+  }, {
+    setMic,
+    startRecording,
+    toggleRecPlayback,
+    setRecOffset,
+    downloadRecording,
   });
+  updateRecUI();
 
   // 加载歌曲列表并选中第一首
   const songs = await fetchSongList();
@@ -187,6 +373,8 @@ async function boot(): Promise<void> {
     if (engine.isPlaying && t >= engine.duration - 0.02) {
       engine.pause();
       void engine.seek(0);
+      // 歌曲放完时若还在录音则自动停止（下次播放即可听到自己的录音）。
+      if (recorder.isRecording) void stopRecording();
     }
     refreshUI(engine);
     requestAnimationFrame(tick);
@@ -233,9 +421,13 @@ async function fetchSongList(): Promise<SongEntry[]> {
   return songList as SongEntry[];
 }
 
-/** 向签名 API 请求某首歌的七牛 CDN 私有播放 URL。 */
-async function signedAudioUrl(slug: string): Promise<string> {
-  const res = await fetch(`${SIGN_API}/sign/${encodeURIComponent(slug)}`);
+/** 向签名 API 请求某首歌的七牛 CDN 私有播放 URL；track="original" 取原唱。 */
+async function signedAudioUrl(
+  slug: string,
+  track?: "original",
+): Promise<string> {
+  const q = track ? `?track=${track}` : "";
+  const res = await fetch(`${SIGN_API}/sign/${encodeURIComponent(slug)}${q}`);
   if (!res.ok) throw new Error(`签名失败: ${res.status}`);
   const data = (await res.json()) as { url: string };
   return data.url;
@@ -243,9 +435,15 @@ async function signedAudioUrl(slug: string): Promise<string> {
 
 function buildControls(
   engine: AudioEngine,
-  mic: MicPitchDetector,
   loadSong: (slug: string) => Promise<void>,
   clearTrail: () => void,
+  rec: {
+    setMic: (on: boolean) => Promise<boolean>;
+    startRecording: () => Promise<void>;
+    toggleRecPlayback: () => Promise<void>;
+    setRecOffset: (ms: number) => Promise<void>;
+    downloadRecording: () => void;
+  },
 ): void {
   // 选歌下拉
   songSelect = document.createElement("select");
@@ -320,24 +518,60 @@ function buildControls(
   );
   engine.setVolume(0.8);
 
-  const micBtn = document.createElement("button");
+  micBtn = document.createElement("button");
   micBtn.textContent = "开麦克风";
-  let micOn = false;
-  micBtn.addEventListener("click", async () => {
-    if (micOn) {
-      mic.stop();
-      micOn = false;
-      micBtn.textContent = "开麦克风";
-      state.mic = null;
-    } else {
-      try {
-        await mic.start();
-        micOn = true;
-        micBtn.textContent = "关麦克风";
-      } catch (err) {
-        alert("无法访问麦克风：" + (err as Error).message);
-      }
-    }
+  micBtn.addEventListener("click", () => {
+    void rec.setMic(!state.micOn);
+  });
+
+  recBtn = document.createElement("button");
+  recBtn.textContent = "开始录音";
+  recBtn.title = "录下自己的演唱（按歌曲时间轴对齐）";
+  recBtn.addEventListener("click", () => {
+    void rec.startRecording();
+  });
+
+  recPlayBtn = document.createElement("button");
+  recPlayBtn.textContent = "录音播放: 关";
+  recPlayBtn.title = "播放时同时播放自己的录音";
+  recPlayBtn.disabled = true;
+  recPlayBtn.addEventListener("click", () => {
+    void rec.toggleRecPlayback();
+  });
+
+  recOffsetLbl = document.createElement("span");
+  recOffsetLbl.style.cssText =
+    "color: var(--muted); font-size:.8rem; font-variant-numeric: tabular-nums";
+  recOffsetLbl.textContent = "录音偏移: 0ms";
+  recOffsetInput = document.createElement("input");
+  recOffsetInput.type = "range";
+  recOffsetInput.min = "-1000";
+  recOffsetInput.max = "1000";
+  recOffsetInput.step = "10";
+  recOffsetInput.value = "0";
+  recOffsetInput.title =
+    "补偿麦克风采集延迟：正值 = 录音延后播放（Windows 麦克风通常 +100~+300ms）";
+  recOffsetInput.disabled = true;
+  recOffsetInput.addEventListener("input", (e) => {
+    const ms = Number((e.target as HTMLInputElement).value);
+    recOffsetLbl.textContent = `录音偏移: ${ms > 0 ? "+" : ""}${ms}ms`;
+    void rec.setRecOffset(ms);
+  });
+
+  recDlBtn = document.createElement("button");
+  recDlBtn.textContent = "下载录音";
+  recDlBtn.title = "把录音保存为音频文件";
+  recDlBtn.disabled = true;
+  recDlBtn.addEventListener("click", rec.downloadRecording);
+
+  origBtn = document.createElement("button");
+  origBtn.textContent = "原唱: 关";
+  origBtn.title = "在伴奏与原唱间切换（本曲无原唱时隐藏）";
+  origBtn.hidden = true;
+  origBtn.addEventListener("click", () => {
+    const next = !engine.useOriginal;
+    void engine.setUseOriginal(next);
+    origBtn.textContent = next ? "原唱: 开" : "原唱: 关";
   });
 
   const clearBtn = document.createElement("button");
@@ -357,6 +591,12 @@ function buildControls(
     volLbl,
     vol,
     micBtn,
+    recBtn,
+    recPlayBtn,
+    recOffsetLbl,
+    recOffsetInput,
+    recDlBtn,
+    origBtn,
     clearBtn,
   );
 }

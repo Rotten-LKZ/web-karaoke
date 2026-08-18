@@ -5,6 +5,8 @@ interface SongEntry {
   title: string;
   artist: string;
   key: string;
+  /** 原唱音轨（可选）：七牛对象 key。 */
+  original?: string;
 }
 
 const data = songs as SongEntry[];
