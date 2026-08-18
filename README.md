@@ -5,6 +5,9 @@
 - 前端：Vite 多页应用，部署到 Cloudflare Pages，自定义域名 `karaoke.rotcool.me`
 - 后端：Cloudflare Worker（`karaoke-api/`，Hono），自定义域名 `karaoke-api.rotcool.me`，负责为七牛云对象存储签发带过期的私有访问 URL
 
+> [!WARNING]
+> 代码中有硬编码 https://karaoke-api.rotcool.me 代码，如果自行部署记得调整成自己的真实域名。如果自己部署，可以考虑修改代码不使用七牛云，可以用 Cloudflare 的产品或者选择直接静态部署，这样就不需要部署单独的 API 侧。
+
 ## 前端
 
 ### 安装
